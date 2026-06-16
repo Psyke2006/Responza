@@ -1,50 +1,216 @@
-# Welcome to your Expo app 👋
+# RESPONZA
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+<p align="center">
+  <strong>Silent Emergency Alert Network</strong><br>
+  A mobile safety platform designed to provide rapid emergency assistance through trusted contacts, location sharing, and intelligent emergency response workflows.
+</p>
 
-## Get started
+---
 
-1. Install dependencies
+## Overview
 
-   ```bash
-   npm install
-   ```
+RESPONZA is a mobile application focused on personal safety and emergency response. The platform enables users to quickly alert trusted contacts during emergencies, share their location, and maintain an organized emergency support network.
 
-2. Start the app
+The long-term vision includes intelligent detection of emergencies using device sensors, allowing the application to identify potential incidents even when the user is unable to manually request help.
 
-   ```bash
-   npx expo start
-   ```
+---
 
-In the output, you'll find options to open the app in a
+## Problem Statement
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+During emergencies such as accidents, medical incidents, harassment, or personal safety threats, individuals may not have sufficient time or ability to contact emergency services or trusted contacts.
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+Current solutions often rely heavily on manual actions and lack integrated emergency response mechanisms.
 
-## Get a fresh project
+RESPONZA aims to provide a faster, more accessible, and more reliable method of requesting assistance during critical situations.
 
-When you're ready, run:
+---
 
-```bash
-npm run reset-project
+## Key Features
+
+### User Authentication
+- Secure account registration and login
+- Firebase Authentication integration
+- Persistent user profiles
+
+### Emergency Contact Network
+- Store and manage trusted contacts
+- Primary contact designation
+- Emergency contact database
+
+### Emergency Alert System
+- SOS alert generation
+- Alert tracking and management
+- Emergency history storage
+
+### Location Services
+- GPS location retrieval
+- Google Maps integration
+- Location sharing support
+
+### Smart Safety Monitoring (Planned)
+- Fall detection
+- Impact detection
+- Inactivity monitoring
+- Automated emergency triggering
+
+---
+
+## Technology Stack
+
+| Layer | Technology |
+|---------|------------|
+| Frontend | React Native |
+| Framework | Expo |
+| Navigation | Expo Router |
+| Backend Services | Firebase |
+| Authentication | Firebase Authentication |
+| Database | Cloud Firestore |
+| Location Services | Expo Location |
+| Sensor Access | Expo Sensors |
+| Version Control | Git & GitHub |
+
+---
+
+## System Architecture
+
+```text
+User
+ │
+ ▼
+React Native Application
+ │
+ ▼
+Firebase Authentication
+ │
+ ▼
+Cloud Firestore
+ │
+ ├── Users
+ │
+ ├── Trusted Contacts
+ │
+ └── Emergency Alerts
+ │
+ ▼
+Future Notification Services
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+---
 
-## Learn more
+## Current Progress
 
-To learn more about developing your project with Expo, look at the following resources:
+### Completed
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+- [x] Project architecture established
+- [x] React Native + Expo setup completed
+- [x] Firebase Authentication integrated
+- [x] Cloud Firestore integrated
+- [x] User registration implemented
+- [x] User login implemented
+- [x] User profile creation in Firestore
+- [x] User profile retrieval from Firestore
+- [x] Home screen connected to Firebase user data
+- [x] GitHub repository setup
 
-## Join the community
+### Backend Services Prepared
 
-Join our community of developers creating universal apps.
+- [x] Authentication service layer
+- [x] Trusted contacts service layer
+- [x] Alert management service layer
+- [x] Location service layer
+- [x] Sensor monitoring service layer
+- [x] Emergency detection service layer
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+### In Progress
+
+- [ ] Trusted contacts management UI
+- [ ] SOS alert workflow integration
+- [ ] Emergency history dashboard
+- [ ] Real-time location sharing
+- [ ] Push notification integration
+- [ ] Sensor-based emergency detection testing
+
+---
+
+## Project Structure
+
+```text
+responza/
+│
+├── app/
+│   ├── index.tsx
+│   ├── login.tsx
+│   ├── signup.tsx
+│   ├── home.tsx
+│   └── _layout.tsx
+│
+├── components/
+├── constants/
+├── assets/
+│
+├── src/
+│   └── services/
+│       ├── firebase.ts
+│       ├── auth.ts
+│       ├── contacts.ts
+│       ├── alerts.ts
+│       ├── location.ts
+│       ├── sensors.ts
+│       └── detection.ts
+│
+├── package.json
+├── tsconfig.json
+└── README.md
+```
+
+---
+
+## Installation
+
+### Clone Repository
+
+```bash
+git clone https://github.com/Psyke2006/Responza.git
+cd Responza
+```
+
+### Install Dependencies
+
+```bash
+npm install
+```
+
+### Start Development Server
+
+```bash
+npx expo start
+```
+
+---
+
+## Future Roadmap
+
+- Trusted contact management system
+- SOS emergency workflow
+- Firebase Cloud Messaging (FCM)
+- SMS-based emergency alerts
+- Live location tracking during emergencies
+- Automated fall detection
+- Automated inactivity detection
+- Emergency analytics dashboard
+- Wearable device integration
+
+---
+
+## Team
+
+RESPONZA Development Team
+
+Building a safer and faster emergency response experience through mobile technology.
+
+---
+
+<p align="center">
+  <strong>RESPONZA</strong><br>
+  Silent Emergency Alert Network
+</p>
