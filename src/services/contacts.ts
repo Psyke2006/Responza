@@ -5,61 +5,52 @@ import {
   updateDoc, 
   deleteDoc, 
   getDocs, 
-  query, 
-  where, 
-  limit, 
   serverTimestamp 
 } from 'firebase/firestore';
-import { auth, db } from './firebase';
+import { db } from './firebase';
 
 /**
  * Interface representing a trusted contact's structure in Firestore.
  */
-export interface TrustedContact {
+export interface Contact {
   id: string;
   name: string;
   phone: string;
   relationship: string;
-  isPrimary: boolean;
-  smsEnabled: boolean;
-  createdAt: any; // Firestore FieldValue or Timestamp
+  enabled: boolean;
+  createdAt: any; // Firestore Timestamp
 }
 
 /**
- * Interface for inputting/creating a new trusted contact.
+ * Input format for creating/updating a contact.
  */
-export type ContactInput = Omit<TrustedContact, 'id' | 'createdAt'>;
+export type ContactInput = Omit<Contact, 'id' | 'createdAt'>;
 
 /**
- * Adds a new trusted contact for the currently authenticated user.
- * Generates a unique contact ID and stores the contact in Firestore.
+ * Adds a new contact under users/{uid}/contacts/{contactId}
  * 
- * Path: users/{uid}/trustedContacts/{contactId}
- * 
- * @param contact - The contact details to add (name, phone, relationship, isPrimary, smsEnabled).
- * @returns A promise that resolves to the created TrustedContact object.
- * @throws An error if the user is not authenticated or the Firestore operation fails.
+ * @param uid - The user's UID.
+ * @param contact - The contact input data.
+ * @returns A promise resolving to the created Contact object.
  */
-export async function addContact(contact: ContactInput): Promise<TrustedContact> {
-  const currentUser = auth.currentUser;
-  if (!currentUser) {
-    throw new Error('User must be authenticated to add a trusted contact.');
+export async function addContact(uid: string, contact: ContactInput): Promise<Contact> {
+  if (!uid) {
+    throw new Error('User UID is required to add a contact.');
   }
-
+  
   try {
-    const contactsCollectionRef = collection(db, 'users', currentUser.uid, 'trustedContacts');
-    const newDocRef = doc(contactsCollectionRef); // Generates a unique document reference & ID
-
-    const contactData: TrustedContact = {
+    const contactsCollectionRef = collection(db, 'users', uid, 'contacts');
+    const newDocRef = doc(contactsCollectionRef); // Generates a unique ID
+    
+    const contactData: Contact = {
       id: newDocRef.id,
       name: contact.name,
       phone: contact.phone,
       relationship: contact.relationship,
-      isPrimary: contact.isPrimary,
-      smsEnabled: contact.smsEnabled,
+      enabled: contact.enabled !== undefined ? contact.enabled : true,
       createdAt: serverTimestamp()
     };
-
+    
     await setDoc(newDocRef, contactData);
     return contactData;
   } catch (error) {
@@ -69,78 +60,30 @@ export async function addContact(contact: ContactInput): Promise<TrustedContact>
 }
 
 /**
- * Updates an existing trusted contact for the currently authenticated user.
+ * Retrieves all contacts under users/{uid}/contacts
  * 
- * Path: users/{uid}/trustedContacts/{contactId}
- * 
- * @param contactId - The unique ID of the contact to update.
- * @param updates - A partial contact object containing the fields to update.
- * @returns A promise that resolves when the update completes.
- * @throws An error if the user is not authenticated or the Firestore operation fails.
+ * @param uid - The user's UID.
+ * @returns A promise resolving to an array of Contact objects.
  */
-export async function updateContact(
-  contactId: string, 
-  updates: Partial<ContactInput>
-): Promise<void> {
-  const currentUser = auth.currentUser;
-  if (!currentUser) {
-    throw new Error('User must be authenticated to update a trusted contact.');
+export async function getContacts(uid: string): Promise<Contact[]> {
+  if (!uid) {
+    throw new Error('User UID is required to fetch contacts.');
   }
 
   try {
-    const contactDocRef = doc(db, 'users', currentUser.uid, 'trustedContacts', contactId);
-    await updateDoc(contactDocRef, updates);
-  } catch (error) {
-    console.error('Error in updateContact:', error);
-    throw error;
-  }
-}
-
-/**
- * Deletes a trusted contact for the currently authenticated user.
- * 
- * Path: users/{uid}/trustedContacts/{contactId}
- * 
- * @param contactId - The unique ID of the contact to delete.
- * @returns A promise that resolves when deletion is successful.
- * @throws An error if the user is not authenticated or the Firestore operation fails.
- */
-export async function deleteContact(contactId: string): Promise<void> {
-  const currentUser = auth.currentUser;
-  if (!currentUser) {
-    throw new Error('User must be authenticated to delete a trusted contact.');
-  }
-
-  try {
-    const contactDocRef = doc(db, 'users', currentUser.uid, 'trustedContacts', contactId);
-    await deleteDoc(contactDocRef);
-  } catch (error) {
-    console.error('Error in deleteContact:', error);
-    throw error;
-  }
-}
-
-/**
- * Retrieves all trusted contacts for the currently authenticated user.
- * 
- * Path: users/{uid}/trustedContacts
- * 
- * @returns A promise that resolves to an array of TrustedContact objects.
- * @throws An error if the user is not authenticated or the Firestore operation fails.
- */
-export async function getContacts(): Promise<TrustedContact[]> {
-  const currentUser = auth.currentUser;
-  if (!currentUser) {
-    throw new Error('User must be authenticated to fetch trusted contacts.');
-  }
-
-  try {
-    const contactsCollectionRef = collection(db, 'users', currentUser.uid, 'trustedContacts');
+    const contactsCollectionRef = collection(db, 'users', uid, 'contacts');
     const querySnapshot = await getDocs(contactsCollectionRef);
     
-    const contacts: TrustedContact[] = [];
+    const contacts: Contact[] = [];
     querySnapshot.forEach((docSnap) => {
-      contacts.push(docSnap.data() as TrustedContact);
+      contacts.push(docSnap.data() as Contact);
+    });
+    
+    // Sort locally by createdAt (oldest first) to ensure consistent order
+    contacts.sort((a, b) => {
+      const timeA = a.createdAt?.seconds || 0;
+      const timeB = b.createdAt?.seconds || 0;
+      return timeA - timeB;
     });
 
     return contacts;
@@ -151,31 +94,74 @@ export async function getContacts(): Promise<TrustedContact[]> {
 }
 
 /**
- * Retrieves the primary trusted contact for the currently authenticated user.
+ * Updates a contact under users/{uid}/contacts/{contactId}
  * 
- * Path: users/{uid}/trustedContacts (filtered where isPrimary is true)
- * 
- * @returns A promise that resolves to the primary TrustedContact, or null if none is marked as primary.
- * @throws An error if the user is not authenticated or the Firestore operation fails.
+ * @param uid - The user's UID.
+ * @param contactId - The ID of the contact to update.
+ * @param data - The partial contact data to update.
+ * @returns A promise resolving when the update is complete.
  */
-export async function getPrimaryContact(): Promise<TrustedContact | null> {
-  const currentUser = auth.currentUser;
-  if (!currentUser) {
-    throw new Error('User must be authenticated to fetch the primary contact.');
+export async function updateContact(
+  uid: string, 
+  contactId: string, 
+  data: Partial<ContactInput>
+): Promise<void> {
+  if (!uid || !contactId) {
+    throw new Error('User UID and Contact ID are required to update a contact.');
   }
 
   try {
-    const contactsCollectionRef = collection(db, 'users', currentUser.uid, 'trustedContacts');
-    const q = query(contactsCollectionRef, where('isPrimary', '==', true), limit(1));
-    const querySnapshot = await getDocs(q);
-
-    if (!querySnapshot.empty) {
-      return querySnapshot.docs[0].data() as TrustedContact;
-    }
-
-    return null;
+    const docRef = doc(db, 'users', uid, 'contacts', contactId);
+    await updateDoc(docRef, data);
   } catch (error) {
-    console.error('Error in getPrimaryContact:', error);
+    console.error('Error in updateContact:', error);
+    throw error;
+  }
+}
+
+/**
+ * Deletes a contact under users/{uid}/contacts/{contactId}
+ * 
+ * @param uid - The user's UID.
+ * @param contactId - The ID of the contact to delete.
+ * @returns A promise resolving when the deletion is complete.
+ */
+export async function deleteContact(uid: string, contactId: string): Promise<void> {
+  if (!uid || !contactId) {
+    throw new Error('User UID and Contact ID are required to delete a contact.');
+  }
+
+  try {
+    const docRef = doc(db, 'users', uid, 'contacts', contactId);
+    await deleteDoc(docRef);
+  } catch (error) {
+    console.error('Error in deleteContact:', error);
+    throw error;
+  }
+}
+
+/**
+ * Toggles a contact's enabled field under users/{uid}/contacts/{contactId}
+ * 
+ * @param uid - The user's UID.
+ * @param contactId - The ID of the contact to toggle.
+ * @param enabled - The new enabled status.
+ * @returns A promise resolving when the toggle update is complete.
+ */
+export async function toggleContact(
+  uid: string, 
+  contactId: string, 
+  enabled: boolean
+): Promise<void> {
+  if (!uid || !contactId) {
+    throw new Error('User UID and Contact ID are required to toggle a contact.');
+  }
+
+  try {
+    const docRef = doc(db, 'users', uid, 'contacts', contactId);
+    await updateDoc(docRef, { enabled });
+  } catch (error) {
+    console.error('Error in toggleContact:', error);
     throw error;
   }
 }

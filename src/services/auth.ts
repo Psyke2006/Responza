@@ -3,7 +3,8 @@ import {
   signInWithEmailAndPassword, 
   signOut as firebaseSignOut, 
   User,
-  UserCredential
+  UserCredential,
+  sendPasswordResetEmail
 } from 'firebase/auth';
 import { 
   doc, 
@@ -13,6 +14,16 @@ import {
   DocumentData 
 } from 'firebase/firestore';
 import { auth, db } from './firebase';
+
+export async function resetPassword(email: string): Promise<void> {
+  try {
+    await sendPasswordResetEmail(auth, email);
+  } catch (error) {
+    console.error('Error during resetPassword:', error);
+    throw error;
+  }
+}
+
 
 /**
  * Creates a new user account with Firebase Authentication and stores additional user

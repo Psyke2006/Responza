@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Colors } from '../constants/theme';
 import { Input } from '../components/Input';
 import { Button } from '../components/Button';
+import { signIn } from '../src/services/auth';
 
 /**
  * Login Screen
@@ -13,10 +14,28 @@ export default function LoginScreen() {
   const router = useRouter();
   const [emailOrPhone, setEmailOrPhone] = useState('');
   const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleLogin = () => {
-    // For now, since we do not connect backend yet, directly navigate to Home Dashboard
-    router.replace('/home' as any);
+  const handleLogin = async () => {
+    if (!emailOrPhone.trim()) {
+      Alert.alert('Validation Error', 'Please enter your email.');
+      return;
+    }
+    if (!password) {
+      Alert.alert('Validation Error', 'Please enter your password.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await signIn(emailOrPhone.trim(), password);
+      setLoading(false);
+      router.replace('/home' as any);
+    } catch (error: any) {
+      setLoading(false);
+      const errorMessage = error?.message || 'Failed to log in. Please check your credentials.';
+      Alert.alert('Login Error', errorMessage);
+    }
   };
 
   return (
@@ -53,7 +72,7 @@ export default function LoginScreen() {
             {/* Forgot Password Link */}
             <TouchableOpacity 
               activeOpacity={0.7} 
-              onPress={() => console.log('Forgot Password pressed')}
+              onPress={() => router.push('/forgot-password' as any)}
               style={styles.forgotPasswordContainer}
             >
               <Text style={styles.forgotPasswordText}>Forgot Password ?</Text>
@@ -62,7 +81,7 @@ export default function LoginScreen() {
 
           {/* Submit Button */}
           <View style={styles.footer}>
-            <Button title="Log in" onPress={handleLogin} />
+            <Button title="Log in" onPress={handleLogin} loading={loading} />
 
             {/* Navigation back helper */}
             <TouchableOpacity 

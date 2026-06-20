@@ -4,7 +4,11 @@ import { Alert, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TouchableO
 // @ts-ignore
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Colors } from '../constants/theme';
-import { getCurrentUserProfile } from '../src/services/auth';
+import { getCurrentUserProfile, getCurrentUser } from '../src/services/auth';
+import { getContacts, Contact } from '../src/services/contacts';
+import { useIsFocused } from '@react-navigation/native';
+import { createAlert } from '../src/services/alerts';
+import { getLocationPayload } from '../src/services/location';
 
 /**
  * Home Dashboard Screen
@@ -13,29 +17,42 @@ import { getCurrentUserProfile } from '../src/services/auth';
  */
 export default function HomeScreen() {
   const router = useRouter();
+  const isFocused = useIsFocused();
   const [isSOSHolding, setIsSOSHolding] = useState(false);
   const [activeTab, setActiveTab] = useState('Home');
   const [userName, setUserName] = useState('User');
+  const [contacts, setContacts] = useState<Contact[]>([]);
 
   useEffect(() => {
+    if (!isFocused) return;
+
     let isMounted = true;
-    const fetchProfile = async () => {
+    const fetchData = async () => {
       try {
+        const user = getCurrentUser();
+        if (!user) return;
+
         const profile = await getCurrentUserProfile();
         if (profile && profile.name && isMounted) {
           setUserName(profile.name);
         }
+
+        const list = await getContacts(user.uid);
+        if (isMounted) {
+          // Limit to max 5 dynamic contacts on dashboard
+          setContacts(list.slice(0, 5));
+        }
       } catch (error) {
-        console.error('Failed to fetch user profile:', error);
+        console.error('Failed to fetch user data:', error);
       }
     };
 
-    fetchProfile();
+    fetchData();
 
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [isFocused]);
 
   const handleSOSPressIn = () => {
     setIsSOSHolding(true);
@@ -45,12 +62,41 @@ export default function HomeScreen() {
     setIsSOSHolding(false);
   };
 
-  const handleSOSLongPress = () => {
-    Alert.alert(
-      "TEST SOS TRIGGERED",
-      "This is a simulation of the SOS emergency trigger. If connected, it would fetch your location and alert your primary contacts.",
-      [{ text: "OK" }]
-    );
+  const handleSOSLongPress = async () => {
+    try {
+      const user = getCurrentUser();
+      if (!user) {
+        Alert.alert('Authentication Error', 'Please log in to trigger an SOS.');
+        router.replace('/login' as any);
+        return;
+      }
+
+      // Fetch location payload
+      let location = null;
+      try {
+        location = await getLocationPayload();
+      } catch (locErr) {
+        console.error('Failed to get location payload:', locErr);
+      }
+
+      // Fetch active trusted contacts
+      let activeContacts: any[] = [];
+      try {
+        const list = await getContacts(user.uid);
+        activeContacts = list.filter(c => c.enabled);
+      } catch (contactsErr) {
+        console.error('Failed to get contacts:', contactsErr);
+      }
+
+      // Create alert document in Firestore
+      const alertDoc = await createAlert(user.uid, 'manual_sos', activeContacts, location);
+
+      // Navigate to Countdown Screen
+      router.push(`/countdown?alertId=${alertDoc.id}` as any);
+    } catch (err: any) {
+      console.error('SOS trigger failure:', err);
+      Alert.alert('SOS Error', 'Failed to trigger emergency alert: ' + (err?.message || err));
+    }
   };
 
   return (
@@ -87,25 +133,38 @@ export default function HomeScreen() {
         <View style={styles.card}>
           <Text style={styles.cardTitle}>TRUSTED</Text>
           <View style={styles.row}>
-            <View style={styles.dashedPill}>
-              <Text style={styles.pillText}>MOM</Text>
-            </View>
-            <View style={styles.dashedPill}>
-              <Text style={styles.pillText}>DAD</Text>
-            </View>
-            <View style={styles.dashedPill}>
-              <Text style={styles.pillText}>RAY</Text>
-            </View>
-            <View style={styles.dashedPill}>
-              <Text style={styles.pillText}>MAHI</Text>
-            </View>
-            <TouchableOpacity
-              activeOpacity={0.7}
-              style={[styles.dashedPill, styles.addPill]}
-              onPress={() => Alert.alert("Add Contact", "Would navigate to add trusted contact screen.")}
-            >
-              <Text style={styles.pillText}>+</Text>
-            </TouchableOpacity>
+            {contacts.map((contact) => (
+              <TouchableOpacity
+                key={contact.id}
+                activeOpacity={0.7}
+                style={[
+                  styles.dashedPill,
+                  !contact.enabled && { opacity: 0.5, backgroundColor: Colors.light.greyLight }
+                ]}
+                onPress={() => router.push('/contacts' as any)}
+              >
+                <Text style={[
+                  styles.pillText,
+                  !contact.enabled && { color: Colors.light.textSecondary }
+                ]}>
+                  {contact.relationship.toUpperCase()}
+                </Text>
+              </TouchableOpacity>
+            ))}
+
+            {contacts.length < 5 && (
+              <TouchableOpacity
+                activeOpacity={0.7}
+                style={[styles.dashedPill, styles.addPill]}
+                onPress={() => router.push('/add-contact' as any)}
+              >
+                <Text style={styles.pillText}>+</Text>
+              </TouchableOpacity>
+            )}
+
+            {contacts.length === 0 && (
+              <Text style={styles.emptyStateText}>No trusted contacts. Tap + to add.</Text>
+            )}
           </View>
         </View>
 
@@ -149,46 +208,43 @@ export default function HomeScreen() {
         <TouchableOpacity
           style={styles.tabItem}
           onPress={() => {
-            setActiveTab('Contacts');
-            Alert.alert("Contacts Navigation", "Simulated Contacts Screen");
+            router.push('/contacts' as any);
           }}
         >
           <Ionicons
             name="call-outline"
             size={24}
-            color={activeTab === 'Contacts' ? Colors.light.accent : Colors.light.text}
+            color={Colors.light.text}
           />
-          <Text style={[styles.tabLabel, activeTab === 'Contacts' && styles.tabLabelActive]}>Contacts</Text>
+          <Text style={styles.tabLabel}>Contacts</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={styles.tabItem}
           onPress={() => {
-            setActiveTab('History');
-            Alert.alert("History Navigation", "Simulated Alerts History Screen");
+            router.push('/history' as any);
           }}
         >
           <Ionicons
             name="time-outline"
             size={24}
-            color={activeTab === 'History' ? Colors.light.accent : Colors.light.text}
+            color={Colors.light.text}
           />
-          <Text style={[styles.tabLabel, activeTab === 'History' && styles.tabLabelActive]}>History</Text>
+          <Text style={styles.tabLabel}>History</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={styles.tabItem}
           onPress={() => {
-            setActiveTab('Profile');
-            Alert.alert("Profile Navigation", "Simulated Profile Settings Screen");
+            router.push('/profile' as any);
           }}
         >
           <Ionicons
             name="person-outline"
             size={24}
-            color={activeTab === 'Profile' ? Colors.light.accent : Colors.light.text}
+            color={Colors.light.text}
           />
-          <Text style={[styles.tabLabel, activeTab === 'Profile' && styles.tabLabelActive]}>Profile</Text>
+          <Text style={styles.tabLabel}>Profile</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -266,6 +322,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: Colors.light.text,
+  },
+  emptyStateText: {
+    fontSize: 14,
+    color: Colors.light.textSecondary,
+    fontStyle: 'italic',
+    paddingVertical: 4,
   },
   addPill: {
     minWidth: 44,

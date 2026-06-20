@@ -3,73 +3,63 @@ import {
   doc, 
   setDoc, 
   updateDoc, 
+  getDoc, 
   getDocs, 
   query, 
-  where 
+  where, 
+  serverTimestamp 
 } from 'firebase/firestore';
-import { auth, db } from './firebase';
-import { getLocationPayload } from './location';
+import { db } from './firebase';
 
-/**
- * Supported alert types.
- */
-export type AlertType = 'SOS' | 'FALL' | 'IMPACT' | 'INACTIVITY';
-
-/**
- * Status of the alert.
- */
-export type AlertStatus = 'ACTIVE' | 'CANCELLED' | 'RESOLVED';
-
-/**
- * Interface representing an alert document structure in Firestore.
- */
-export interface Alert {
-  alertId: string;
-  userId: string;
-  type: AlertType;
-  status: AlertStatus;
-  latitude: number;
-  longitude: number;
-  mapLink: string;
-  timestamp: number;
-  contactsNotified: boolean;
+export interface AlertDocument {
+  id: string;
+  uid: string;
+  type: string; // 'manual_sos' | 'fall_detection' | etc.
+  status: 'pending' | 'active' | 'cancelled' | 'resolved';
+  createdAt: any; // Firestore Timestamp
+  resolvedAt: any | null;
+  cancelReason: string | null;
+  contacts: any[]; // trusted contacts active at alert generation
+  location: {
+    latitude: number;
+    longitude: number;
+    mapLink?: string;
+    timestamp?: number;
+  } | null;
 }
 
 /**
- * Creates a new emergency alert. Retrieves the current user, obtains their 
- * current location payload, and creates a document in the 'alerts' collection.
+ * Creates a new alert document inside alerts/{alertId}
  * 
- * Path: alerts/{alertId}
- * 
- * @param type - The type of alert ('SOS', 'FALL', 'IMPACT', 'INACTIVITY').
- * @returns A promise that resolves to the created Alert object.
- * @throws An error if the user is not authenticated or if retrieving location/creating the alert fails.
+ * @param uid - The user's UID.
+ * @param type - The alert trigger type (e.g. 'manual_sos').
+ * @param contacts - Array of trusted contacts at the time of the alert.
+ * @param location - The user's coordinates payload.
+ * @returns A promise resolving to the created AlertDocument.
  */
-export async function createAlert(type: AlertType): Promise<Alert> {
-  const currentUser = auth.currentUser;
-  if (!currentUser) {
-    throw new Error('User must be authenticated to trigger an emergency alert.');
-  }
-
+export async function createAlert(
+  uid: string, 
+  type: string, 
+  contacts: any[], 
+  location: any
+): Promise<AlertDocument> {
   try {
-    const locationPayload = await getLocationPayload();
-
     const alertsCollectionRef = collection(db, 'alerts');
-    const newAlertDocRef = doc(alertsCollectionRef); // Auto-generates unique ID
-
-    const alertData: Alert = {
-      alertId: newAlertDocRef.id,
-      userId: currentUser.uid,
+    const newDocRef = doc(alertsCollectionRef); // Generates a unique alert ID
+    
+    const alertData: AlertDocument = {
+      id: newDocRef.id,
+      uid,
       type,
-      status: 'ACTIVE',
-      latitude: locationPayload.latitude,
-      longitude: locationPayload.longitude,
-      mapLink: locationPayload.mapLink,
-      timestamp: locationPayload.timestamp,
-      contactsNotified: false
+      status: 'pending',
+      createdAt: serverTimestamp(),
+      resolvedAt: null,
+      cancelReason: null,
+      contacts,
+      location: location || null
     };
 
-    await setDoc(newAlertDocRef, alertData);
+    await setDoc(newDocRef, alertData);
     return alertData;
   } catch (error) {
     console.error('Error in createAlert:', error);
@@ -78,32 +68,70 @@ export async function createAlert(type: AlertType): Promise<Alert> {
 }
 
 /**
- * Retrieves all alerts triggered by the currently authenticated user.
- * Sorted locally by timestamp in descending order (most recent first).
+ * Cancels an active/pending alert in Firestore.
  * 
- * Path: alerts/{alertId}
- * 
- * @returns A promise that resolves to an array of Alert objects.
- * @throws An error if the user is not authenticated or if query fails.
+ * @param alertId - The target alert document ID.
+ * @param reason - The reason description.
  */
-export async function getUserAlerts(): Promise<Alert[]> {
-  const currentUser = auth.currentUser;
-  if (!currentUser) {
-    throw new Error('User must be authenticated to retrieve alerts.');
+export async function cancelAlert(alertId: string, reason: string): Promise<void> {
+  try {
+    const docRef = doc(db, 'alerts', alertId);
+    await updateDoc(docRef, {
+      status: 'cancelled',
+      cancelReason: reason
+    });
+  } catch (error) {
+    console.error('Error in cancelAlert:', error);
+    throw error;
   }
+}
 
+/**
+ * Resolves an active alert in Firestore.
+ * 
+ * @param alertId - The target alert document ID.
+ */
+export async function resolveAlert(alertId: string): Promise<void> {
+  try {
+    const docRef = doc(db, 'alerts', alertId);
+    await updateDoc(docRef, {
+      status: 'resolved',
+      resolvedAt: serverTimestamp()
+    });
+  } catch (error) {
+    console.error('Error in resolveAlert:', error);
+    throw error;
+  }
+}
+
+/**
+ * Retrieves all alerts for a specific user from Firestore.
+ * 
+ * @param uid - The user's UID.
+ * @returns A promise resolving to an array of AlertDocuments sorted by creation time descending.
+ */
+export async function getUserAlerts(uid: string): Promise<AlertDocument[]> {
   try {
     const alertsCollectionRef = collection(db, 'alerts');
-    const q = query(alertsCollectionRef, where('userId', '==', currentUser.uid));
+    const q = query(
+      alertsCollectionRef, 
+      where('uid', '==', uid)
+    );
     const querySnapshot = await getDocs(q);
-
-    const alerts: Alert[] = [];
+    
+    const alerts: AlertDocument[] = [];
     querySnapshot.forEach((docSnap) => {
-      alerts.push(docSnap.data() as Alert);
+      alerts.push(docSnap.data() as AlertDocument);
+    });
+    
+    // Sort locally by createdAt descending (newest first)
+    alerts.sort((a, b) => {
+      const timeA = a.createdAt?.seconds || 0;
+      const timeB = b.createdAt?.seconds || 0;
+      return timeB - timeA;
     });
 
-    // Sort in-memory descending by timestamp to avoid requiring composite indexes
-    return alerts.sort((a, b) => b.timestamp - a.timestamp);
+    return alerts;
   } catch (error) {
     console.error('Error in getUserAlerts:', error);
     throw error;
@@ -111,39 +139,21 @@ export async function getUserAlerts(): Promise<Alert[]> {
 }
 
 /**
- * Cancels an active alert by updating its status to CANCELLED.
+ * Retrieves details for a specific alert document.
  * 
- * @param alertId - The unique ID of the alert to cancel.
- * @returns A promise that resolves when the update is complete.
- * @throws An error if the update fails.
+ * @param alertId - The target alert document ID.
+ * @returns A promise resolving to the AlertDocument or null if not found.
  */
-export async function cancelAlert(alertId: string): Promise<void> {
+export async function getAlertById(alertId: string): Promise<AlertDocument | null> {
   try {
-    const alertDocRef = doc(db, 'alerts', alertId);
-    await updateDoc(alertDocRef, {
-      status: 'CANCELLED'
-    });
+    const docRef = doc(db, 'alerts', alertId);
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists()) {
+      return docSnap.data() as AlertDocument;
+    }
+    return null;
   } catch (error) {
-    console.error(`Error in cancelAlert for alert ID ${alertId}:`, error);
-    throw error;
-  }
-}
-
-/**
- * Resolves an active alert by updating its status to RESOLVED.
- * 
- * @param alertId - The unique ID of the alert to resolve.
- * @returns A promise that resolves when the update is complete.
- * @throws An error if the update fails.
- */
-export async function resolveAlert(alertId: string): Promise<void> {
-  try {
-    const alertDocRef = doc(db, 'alerts', alertId);
-    await updateDoc(alertDocRef, {
-      status: 'RESOLVED'
-    });
-  } catch (error) {
-    console.error(`Error in resolveAlert for alert ID ${alertId}:`, error);
+    console.error('Error in getAlertById:', error);
     throw error;
   }
 }
