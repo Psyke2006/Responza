@@ -42,6 +42,7 @@ export default function CountdownScreen() {
       return;
     }
 
+    // Start timer countdown
     timerRef.current = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev <= 1) {

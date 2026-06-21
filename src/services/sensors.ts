@@ -73,6 +73,8 @@ function emitEvent(): void {
     rotation,
   };
 
+  console.log(`[Sensor Service] Event - Accel: ${accelerationMagnitude.toFixed(3)}g, Gyro: ${rotation.toFixed(3)} rad/s`);
+
   callbacks.forEach((callback) => {
     try {
       callback(payload);
@@ -96,25 +98,36 @@ export function startSensorMonitoring(updateIntervalMs: number = DEFAULT_CONFIG.
   Gyroscope.setUpdateInterval(updateIntervalMs);
 
   accelSubscription = Accelerometer.addListener((data) => {
+    console.log("[ACCEL CALLBACK FIRED]");
+    console.log("[ACCEL RAW]", data);
     lastAccel = { x: data.x, y: data.y, z: data.z };
     emitEvent();
   });
+  console.log("[ACCEL LISTENER ATTACHED]");
 
   gyroSubscription = Gyroscope.addListener((data) => {
+    console.log("[GYRO CALLBACK FIRED]");
+    console.log("[GYRO RAW]", data);
     lastGyro = { x: data.x, y: data.y, z: data.z };
     emitEvent();
   });
+  console.log("[GYRO LISTENER ATTACHED]");
+
+  console.log("[SENSORS] Sensor subscriptions created");
 }
 
 /**
  * Stops monitoring the device's Accelerometer and Gyroscope sensors.
  */
 export function stopSensorMonitoring(): void {
+  console.log("[STOP SENSOR MONITORING CALLED]");
   if (accelSubscription) {
+    console.log("[ACCEL LISTENER CLEANUP] Removing accelerometer listener");
     accelSubscription.remove();
     accelSubscription = null;
   }
   if (gyroSubscription) {
+    console.log("[GYRO LISTENER CLEANUP] Removing gyroscope listener");
     gyroSubscription.remove();
     gyroSubscription = null;
   }
@@ -154,6 +167,7 @@ export function detectImpact(
       const now = Date.now();
       if (now - lastImpactTime >= cooldownMs) {
         lastImpactTime = now;
+        console.log(`[Sensor Service] Impact detected! Magnitude: ${data.accelerationMagnitude.toFixed(3)}g (Threshold: ${threshold}g)`);
         onImpact();
       }
     }
@@ -182,6 +196,7 @@ export function detectInactivity(
       clearTimeout(inactivityTimer);
     }
     inactivityTimer = setTimeout(() => {
+      console.log(`[Sensor Service] Inactivity detected! Stillness duration exceeded ${inactivityDurationMs}ms`);
       onInactivity();
     }, inactivityDurationMs);
   };

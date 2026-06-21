@@ -48,12 +48,10 @@ enum FallState {
 export interface EmergencyCallbacks {
   onFallDetected: () => void;
   onImpactDetected: () => void;
-  onInactivityDetected: () => void;
 }
 
 let fallUnsub: (() => void) | null = null;
 let impactUnsub: (() => void) | null = null;
-let inactivityUnsub: (() => void) | null = null;
 
 /**
  * Helper function to calculate the angular difference (in degrees) between two 3D vectors.
@@ -165,6 +163,7 @@ export function detectFall(
           const angleDiff = getAngleDifference(vPre, vPost);
 
           if (angleDiff >= config.orientationChangeAngle) {
+            console.log(`[Detection Service] Fall Confirmed! Orientation angle shift: ${angleDiff.toFixed(1)}° (Threshold: ${config.orientationChangeAngle}°)`);
             onFallDetected();
           }
 
@@ -217,40 +216,33 @@ export function startEmergencyDetection(
   config?: {
     fall?: FallDetectionConfig;
     impactThreshold?: number;
-    inactivityThreshold?: number;
-    inactivityDuration?: number;
   }
 ): void {
-  // Start the physical sensor listener
-  startSensorMonitoring();
-
+  console.log("[DETECTION] startEmergencyDetection invoked");
   // Reset any active subscriptions to prevent memory leaks
   stopEmergencyDetection();
 
+  // Start the physical sensor listener
+  startSensorMonitoring();
+
   fallUnsub = detectFall(callbacks.onFallDetected, config?.fall);
   impactUnsub = detectImpactEmergency(callbacks.onImpactDetected, config?.impactThreshold);
-  inactivityUnsub = detectInactivityEmergency(
-    callbacks.onInactivityDetected,
-    config?.inactivityThreshold,
-    config?.inactivityDuration
-  );
 }
 
 /**
  * Stops all emergency detection listeners and turns off device sensor monitoring.
  */
 export function stopEmergencyDetection(): void {
+  console.log("[DETECTION] stopEmergencyDetection invoked");
   if (fallUnsub) {
+    console.log("[DETECTION CLEANUP] Removing fall listener");
     fallUnsub();
     fallUnsub = null;
   }
   if (impactUnsub) {
+    console.log("[DETECTION CLEANUP] Removing impact listener");
     impactUnsub();
     impactUnsub = null;
-  }
-  if (inactivityUnsub) {
-    inactivityUnsub();
-    inactivityUnsub = null;
   }
 
   // Turn off the underlying Accelerometer & Gyroscope hardware listeners

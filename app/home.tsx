@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Alert, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 // @ts-ignore
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -9,6 +9,7 @@ import { getContacts, Contact } from '../src/services/contacts';
 import { useIsFocused } from '@react-navigation/native';
 import { createAlert } from '../src/services/alerts';
 import { getLocationPayload } from '../src/services/location';
+import { startEmergencyDetection, stopEmergencyDetection } from '../src/services/detection';
 
 /**
  * Home Dashboard Screen
@@ -22,6 +23,72 @@ export default function HomeScreen() {
   const [activeTab, setActiveTab] = useState('Home');
   const [userName, setUserName] = useState('User');
   const [contacts, setContacts] = useState<Contact[]>([]);
+  const isTriggeringAlertRef = useRef(false);
+
+  const handleEmergencyTrigger = useCallback(async (triggerType: string) => {
+    if (isTriggeringAlertRef.current) return;
+    isTriggeringAlertRef.current = true;
+
+    try {
+      const user = getCurrentUser();
+      if (!user) {
+        isTriggeringAlertRef.current = false;
+        return;
+      }
+
+      // Fetch location payload
+      let location = null;
+      try {
+        location = await getLocationPayload();
+      } catch (locErr) {
+        console.error('Failed to get location payload:', locErr);
+      }
+
+      // Fetch active trusted contacts
+      let activeContacts: any[] = [];
+      try {
+        const list = await getContacts(user.uid);
+        activeContacts = list.filter(c => c.enabled);
+      } catch (contactsErr) {
+        console.error('Failed to get contacts:', contactsErr);
+      }
+
+      // Create alert document in Firestore
+      const alertDoc = await createAlert(user.uid, triggerType, activeContacts, location);
+
+      // Navigate to Countdown Screen
+      router.push(`/countdown?alertId=${alertDoc.id}` as any);
+    } catch (err: any) {
+      console.error('Automated emergency trigger failure:', err);
+      Alert.alert('Emergency Error', 'Failed to trigger emergency alert: ' + (err?.message || err));
+    } finally {
+      isTriggeringAlertRef.current = false;
+    }
+  }, [router]);
+
+  useEffect(() => {
+    if (!isFocused) {
+      stopEmergencyDetection();
+      return;
+    }
+
+    console.log("[HOME] Starting emergency detection");
+    startEmergencyDetection({
+      onFallDetected: () => {
+        console.log('Automated detection: Fall detected');
+        handleEmergencyTrigger('fall_detection');
+      },
+      onImpactDetected: () => {
+        console.log('Automated detection: Impact detected');
+        handleEmergencyTrigger('fall_detection');
+      }
+    });
+    console.log("[HOME] Detection callback registered");
+
+    return () => {
+      stopEmergencyDetection();
+    };
+  }, [isFocused, handleEmergencyTrigger]);
 
   useEffect(() => {
     if (!isFocused) return;
