@@ -8,6 +8,7 @@ import {
   serverTimestamp 
 } from 'firebase/firestore';
 import { db } from './firebase';
+import { normalizePhoneNumber } from './auth';
 
 /**
  * Interface representing a trusted contact's structure in Firestore.
@@ -45,7 +46,7 @@ export async function addContact(uid: string, contact: ContactInput): Promise<Co
     const contactData: Contact = {
       id: newDocRef.id,
       name: contact.name,
-      phone: contact.phone,
+      phone: normalizePhoneNumber(contact.phone),
       relationship: contact.relationship,
       enabled: contact.enabled !== undefined ? contact.enabled : true,
       createdAt: serverTimestamp()
@@ -111,8 +112,12 @@ export async function updateContact(
   }
 
   try {
+    const updatedData = { ...data };
+    if (updatedData.phone) {
+      updatedData.phone = normalizePhoneNumber(updatedData.phone);
+    }
     const docRef = doc(db, 'users', uid, 'contacts', contactId);
-    await updateDoc(docRef, data);
+    await updateDoc(docRef, updatedData);
   } catch (error) {
     console.error('Error in updateContact:', error);
     throw error;

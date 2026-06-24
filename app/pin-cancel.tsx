@@ -17,6 +17,7 @@ import { getProfile } from '../src/services/profile';
 import { cancelAlert, resolveAlert } from '../src/services/alerts';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../src/services/firebase';
+import { sendAlertNotifications } from '../src/services/notifications';
 
 export default function PinCancelScreen() {
   const router = useRouter();
@@ -34,6 +35,11 @@ export default function PinCancelScreen() {
     try {
       const docRef = doc(db, 'alerts', alertId);
       await updateDoc(docRef, { status: 'active' });
+      try {
+        await sendAlertNotifications(alertId);
+      } catch (notiErr) {
+        console.error('Failed to send push notifications:', notiErr);
+      }
     } catch (err) {
       console.error('Failed to update alert state to active:', err);
     }
@@ -111,6 +117,12 @@ export default function PinCancelScreen() {
         // We do NOT cancel the alert. We activate it if it was pending
         const docRef = doc(db, 'alerts', alertId);
         await updateDoc(docRef, { status: 'active' });
+        
+        try {
+          await sendAlertNotifications(alertId);
+        } catch (notiErr) {
+          console.error('Failed to send push notifications on distress PIN:', notiErr);
+        }
         
         // Navigate anyway pretending it was cancelled
         router.replace(`/cancelled-feedback?alertId=${alertId}&disarmType=distress` as any);

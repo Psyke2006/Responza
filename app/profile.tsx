@@ -172,6 +172,21 @@ export default function ProfileScreen() {
                 </View>
                 <Ionicons name="chevron-forward" size={20} color={Colors.light.placeholder} />
               </TouchableOpacity>
+
+              {/* Option: Phone Number */}
+              <TouchableOpacity 
+                style={styles.menuItem}
+                onPress={() => router.push('/phone' as any)}
+                activeOpacity={0.7}
+              >
+                <View style={styles.menuLeft}>
+                  <View style={[styles.menuIconContainer, { backgroundColor: '#EAFDF5' }]}>
+                    <Ionicons name="call-outline" size={22} color="#10B981" />
+                  </View>
+                  <Text style={styles.menuText}>Phone Number</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color={Colors.light.placeholder} />
+              </TouchableOpacity>
             </View>
 
             {/* Sign Out Button */}

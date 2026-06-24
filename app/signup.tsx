@@ -30,6 +30,11 @@ export default function SignupScreen() {
       return;
     }
 
+    if (!phone.trim()) {
+      Alert.alert('Validation Error', 'Please enter your phone number.');
+      return;
+    }
+
     if (password.length < 6) {
       Alert.alert('Validation Error', 'Password must be at least 6 characters long.');
       return;
@@ -37,7 +42,7 @@ export default function SignupScreen() {
 
     setLoading(true);
     try {
-      await signUp(email, password, name);
+      await signUp(email, password, name, phone);
       setLoading(false);
       Alert.alert(
         'Success',

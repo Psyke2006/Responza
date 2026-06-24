@@ -10,6 +10,7 @@ import { useIsFocused } from '@react-navigation/native';
 import { createAlert } from '../src/services/alerts';
 import { getLocationPayload } from '../src/services/location';
 import { startEmergencyDetection, stopEmergencyDetection } from '../src/services/detection';
+import { registerForPushNotificationsAsync } from '../src/services/notifications';
 
 /**
  * Home Dashboard Screen
@@ -99,9 +100,17 @@ export default function HomeScreen() {
         const user = getCurrentUser();
         if (!user) return;
 
+        // Fetch user profile name
         const profile = await getCurrentUserProfile();
         if (profile && profile.name && isMounted) {
           setUserName(profile.name);
+        }
+
+        // Register push token in Firestore expoPushTokens array
+        try {
+          await registerForPushNotificationsAsync(user.uid);
+        } catch (pushErr) {
+          console.error('[HOME] Failed to register push notifications:', pushErr);
         }
 
         const list = await getContacts(user.uid);

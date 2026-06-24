@@ -14,6 +14,7 @@ export default function RootLayout() {
         <Stack.Screen name="contacts" />
         <Stack.Screen name="add-contact" />
         <Stack.Screen name="profile" />
+        <Stack.Screen name="phone" />
         <Stack.Screen name="medical-info" />
         <Stack.Screen name="emergency-note" />
         <Stack.Screen name="cancel-codes" />

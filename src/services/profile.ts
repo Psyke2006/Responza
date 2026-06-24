@@ -1,6 +1,7 @@
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { signOut as firebaseSignOut } from 'firebase/auth';
 import { auth, db } from './firebase';
+import { normalizePhoneNumber } from './auth';
 
 export interface MedicalInfo {
   bloodType: string;
@@ -10,6 +11,7 @@ export interface UserProfile {
   uid: string;
   name: string;
   email: string;
+  phone?: string;
   medicalInfo?: MedicalInfo;
   emergencyNote?: string;
   safePin?: string;
@@ -120,6 +122,29 @@ export async function signOutUser(): Promise<void> {
     await firebaseSignOut(auth);
   } catch (error) {
     console.error('Error in signOutUser:', error);
+    throw error;
+  }
+}
+
+/**
+ * Updates the user's phone number in their profile document.
+ * 
+ * @param phone - The raw phone number input.
+ */
+export async function updatePhone(phone: string): Promise<void> {
+  const currentUser = auth.currentUser;
+  if (!currentUser) {
+    throw new Error('User must be authenticated to update phone number.');
+  }
+
+  try {
+    const docRef = doc(db, 'users', currentUser.uid);
+    const normalized = normalizePhoneNumber(phone);
+    await updateDoc(docRef, {
+      phone: normalized
+    });
+  } catch (error) {
+    console.error('Error in updatePhone:', error);
     throw error;
   }
 }

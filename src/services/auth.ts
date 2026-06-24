@@ -26,25 +26,42 @@ export async function resetPassword(email: string): Promise<void> {
 
 
 /**
+ * Normalizes a phone number by removing non-digits and ensuring a '+' prefix.
+ */
+export function normalizePhoneNumber(phone: string): string {
+  let cleaned = phone.replace(/[^\d+]/g, '');
+  if (cleaned && !cleaned.startsWith('+')) {
+    cleaned = '+' + cleaned;
+  }
+  return cleaned;
+}
+
+/**
  * Creates a new user account with Firebase Authentication and stores additional user
  * information in Firestore.
  * 
  * @param email - The email address for the user.
  * @param password - The secure password for the user.
  * @param name - The full name of the user.
+ * @param phone - The phone number of the user.
  * @returns A promise that resolves to the UserCredential from Firebase Auth.
  * @throws An error if user creation or profile creation fails.
  */
-export async function signUp(email: string, password: string, name: string): Promise<UserCredential> {
+export async function signUp(email: string, password: string, name: string, phone: string): Promise<UserCredential> {
   try {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
+
+    // Normalize phone number to E.164
+    const normalizedPhone = normalizePhoneNumber(phone);
 
     // Create a matching profile document in Firestore 'users' collection
     await setDoc(doc(db, 'users', user.uid), {
       uid: user.uid,
       name,
       email,
+      phone: normalizedPhone,
+      expoPushTokens: [],
       createdAt: serverTimestamp()
     });
 

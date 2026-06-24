@@ -14,6 +14,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { Colors } from '../constants/theme';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../src/services/firebase';
+import { sendAlertNotifications } from '../src/services/notifications';
 
 export default function CountdownScreen() {
   const router = useRouter();
@@ -27,6 +28,11 @@ export default function CountdownScreen() {
       await updateDoc(docRef, {
         status: 'active'
       });
+      try {
+        await sendAlertNotifications(alertId);
+      } catch (notiErr) {
+        console.error('Failed to send push notifications:', notiErr);
+      }
       router.replace(`/active-alert?alertId=${alertId}` as any);
     } catch (err) {
       console.error('Failed to activate alert on timeout:', err);
