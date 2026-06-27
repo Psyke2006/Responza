@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors } from '../constants/theme';
 import { Input } from '../components/Input';
 import { Button } from '../components/Button';
@@ -44,13 +45,20 @@ export default function SignupScreen() {
     try {
       await signUp(email, password, name, phone);
       setLoading(false);
+      const completed = await AsyncStorage.getItem('responza_onboarding_completed');
       Alert.alert(
         'Success',
         'Your account has been created successfully!',
         [
           {
             text: 'OK',
-            onPress: () => router.replace('/home' as any),
+            onPress: () => {
+              if (completed === 'true') {
+                router.replace('/home' as any);
+              } else {
+                router.replace('/permissions' as any);
+              }
+            },
           },
         ]
       );

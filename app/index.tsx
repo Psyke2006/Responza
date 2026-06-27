@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router';
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Button } from '../components/Button';
 import { Colors } from '../constants/theme';
 
@@ -10,6 +11,39 @@ import { Colors } from '../constants/theme';
  */
 export default function SplashScreen() {
   const router = useRouter();
+  const [checking, setChecking] = useState(true);
+
+  useEffect(() => {
+    const checkCarouselOnboarding = async () => {
+      try {
+        const carouselCompleted = await AsyncStorage.getItem('responza_carousel_onboarding_completed');
+        if (carouselCompleted !== 'true') {
+          router.replace('/onboarding' as any);
+          return;
+        }
+
+        const permissionsCompleted = await AsyncStorage.getItem('responza_onboarding_completed');
+        if (permissionsCompleted !== 'true') {
+          router.replace('/permissions' as any);
+          return;
+        }
+
+        setChecking(false);
+      } catch (err) {
+        console.error('[SPLASH] Failed to check onboarding status:', err);
+        setChecking(false);
+      }
+    };
+    checkCarouselOnboarding();
+  }, [router]);
+
+  if (checking) {
+    return (
+      <SafeAreaView style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <Text style={styles.brandTitle}>RESPONZA</Text>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>

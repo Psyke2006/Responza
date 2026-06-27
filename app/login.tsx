@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors } from '../constants/theme';
 import { Input } from '../components/Input';
 import { Button } from '../components/Button';
@@ -30,7 +31,12 @@ export default function LoginScreen() {
     try {
       await signIn(emailOrPhone.trim(), password);
       setLoading(false);
-      router.replace('/home' as any);
+      const completed = await AsyncStorage.getItem('responza_onboarding_completed');
+      if (completed === 'true') {
+        router.replace('/home' as any);
+      } else {
+        router.replace('/permissions' as any);
+      }
     } catch (error: any) {
       setLoading(false);
       const errorMessage = error?.message || 'Failed to log in. Please check your credentials.';

@@ -11,6 +11,7 @@ import { createAlert } from '../src/services/alerts';
 import { getLocationPayload } from '../src/services/location';
 import { startEmergencyDetection, stopEmergencyDetection } from '../src/services/detection';
 import { registerForPushNotificationsAsync } from '../src/services/notifications';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 /**
  * Home Dashboard Screen
@@ -97,6 +98,15 @@ export default function HomeScreen() {
     let isMounted = true;
     const fetchData = async () => {
       try {
+        // Onboarding guard check
+        const completed = await AsyncStorage.getItem('responza_onboarding_completed');
+        if (completed !== 'true') {
+          if (isMounted) {
+            router.replace('/permissions' as any);
+          }
+          return;
+        }
+
         const user = getCurrentUser();
         if (!user) return;
 
@@ -128,7 +138,7 @@ export default function HomeScreen() {
     return () => {
       isMounted = false;
     };
-  }, [isFocused]);
+  }, [isFocused, router]);
 
   const handleSOSPressIn = () => {
     setIsSOSHolding(true);
